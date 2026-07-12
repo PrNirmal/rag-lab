@@ -1,0 +1,23 @@
+What Changes in Docker Later?
+
+Almost nothing.
+
+Today:
+
+Temporary File
+
+↓
+
+backend/temp/
+
+Later with Docker:
+
+Temporary File
+
+↓
+
+/tmp/
+
+or directly in memory.
+
+Your business logic remains the same.
