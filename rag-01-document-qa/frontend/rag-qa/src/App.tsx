@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Header } from './components/Header'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { ChatMessages } from './components/ChatMessages'
 import { InputBar } from './components/InputBar'
 import { UploadModal } from './components/UploadModal'
+import { DocumentSidebar, type DocumentItem } from './components/DocumentSidebar'
 import { Toast } from './components/Toast'
 import logoImg from './assets/logo.png'
 
@@ -24,13 +25,19 @@ interface Message {
 
 interface UploadProgress {
   name: string
-  status: 'pending' | 'success' | 'error'
+  status: 'pending' | 'success' | 'error' | 'exists'
   errorMsg?: string
+  proof?: {
+    filename: string
+    total_chunks: number
+    pages: number[]
+    excerpt: string
+  }
 }
 
 function App() {
   // Navigation & Config state
-  const [modelProvider, setModelProvider] = useState<'ollama' | 'openrouter'>('ollama')
+  const [modelProvider, setModelProvider] = useState<'ollama' | 'openrouter'>('openrouter')
 
   // Splash Loading states
   const [isSplashing, setIsSplashing] = useState(true)
@@ -44,6 +51,11 @@ function App() {
   // Document list & Upload state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
   const [uploadProgressList, setUploadProgressList] = useState<UploadProgress[]>([])
+
+  // Document Library Sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [documents, setDocuments] = useState<DocumentItem[]>([])
+  const [isFetchingDocs, setIsFetchingDocs] = useState(false)
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null)
@@ -73,10 +85,56 @@ function App() {
     }, 4000)
   }
 
+  // Fetch all documents from the backend
+  const fetchDocuments = useCallback(async () => {
+    setIsFetchingDocs(true)
+    try {
+      const response = await fetch('/api/uploads/')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.documents && Array.isArray(data.documents)) {
+          setDocuments(data.documents)
+        } else if (data.files && Array.isArray(data.files)) {
+          // Fallback if legacy response
+          setDocuments(data.files.map((f: string) => ({
+            filename: f,
+            total_chunks: 1,
+            pages: [1]
+          })))
+        }
+      }
+    } catch {
+      // Backend may not be available or network error
+    } finally {
+      setIsFetchingDocs(false)
+    }
+  }, [])
+
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchDocuments()
+  }, [fetchDocuments])
+
+  // Keyboard shortcut listener (Cmd/Ctrl + B to toggle sidebar, Esc to close)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setIsSidebarOpen(prev => !prev)
+      } else if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isSidebarOpen])
+
   // Handle uploading files
   const handleFileUpload = async (files: FileList) => {
     const newProgressItems = Array.from(files).map(f => ({ name: f.name, status: 'pending' as const }))
     setUploadProgressList(prev => [...newProgressItems, ...prev])
+
+    let anySuccess = false
 
     for (const file of Array.from(files)) {
       const formData = new FormData()
@@ -89,30 +147,95 @@ function App() {
         })
 
         if (response.ok) {
+          anySuccess = true
           setUploadProgressList(prev =>
             prev.map(item => (item.name === file.name ? { ...item, status: 'success' } : item))
           )
           showToast(`"${file.name}" uploaded and indexed successfully!`, 'success')
         } else {
           const errData = await response.json().catch(() => ({}))
-          const errorMsg = errData.detail || 'Upload failed'
-          setUploadProgressList(prev =>
-            prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg } : item))
-          )
-          showToast(`Failed to upload "${file.name}": ${errorMsg}`, 'error')
+          const errorDetail = errData.detail
+
+          if (errorDetail && errorDetail.error_type === 'already_exists') {
+            setUploadProgressList(prev =>
+              prev.map(item =>
+                item.name === file.name
+                  ? {
+                    ...item,
+                    status: 'exists',
+                    errorMsg: errorDetail.message,
+                    proof: errorDetail.proof
+                  }
+                  : item
+              )
+            )
+            showToast(`"${file.name}" is already available in the database.`, 'info')
+          } else {
+            const errorMsg = (typeof errorDetail === 'string' ? errorDetail : errorDetail?.message) || 'Upload failed'
+            setUploadProgressList(prev =>
+              prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg } : item))
+            )
+            showToast(`Failed to upload "${file.name}": ${errorMsg}`, 'error')
+          }
         }
-      } catch (error) {
+      } catch {
         setUploadProgressList(prev =>
           prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg: 'Network error' } : item))
         )
         showToast(`Failed to upload "${file.name}": Network error`, 'error')
       }
     }
+
+    if (anySuccess) {
+      await fetchDocuments()
+    }
+  }
+
+  // Handle single document deletion
+  const handleDeleteDocument = async (filename: string) => {
+    try {
+      const response = await fetch(`/api/uploads/${encodeURIComponent(filename)}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setDocuments(prev => prev.filter(doc => doc.filename !== filename))
+        showToast(`"${filename}" removed from knowledge base.`, 'success')
+        await fetchDocuments()
+      } else {
+        const errData = await response.json().catch(() => ({}))
+        const errorMsg = errData.detail || 'Failed to delete document'
+        showToast(`Error deleting "${filename}": ${errorMsg}`, 'error')
+      }
+    } catch (error: any) {
+      showToast(`Failed to delete "${filename}": ${error.message || 'Network error'}`, 'error')
+    }
+  }
+
+  // Handle delete all documents
+  const handleDeleteAllDocuments = async () => {
+    try {
+      const response = await fetch('/api/uploads/', {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setDocuments([])
+        showToast('All documents removed from knowledge base.', 'success')
+        await fetchDocuments()
+      } else {
+        const errData = await response.json().catch(() => ({}))
+        const errorMsg = errData.detail || 'Failed to clear documents'
+        showToast(`Error clearing documents: ${errorMsg}`, 'error')
+      }
+    } catch (error: any) {
+      showToast(`Failed to clear documents: ${error.message || 'Network error'}`, 'error')
+    }
   }
 
   // Handle sending a RAG query
   const handleSendQuery = async (textToSend?: string) => {
-    const queryText = textToSend !== undefined ? textToSend : query
+    const queryText = typeof textToSend === 'string' ? textToSend : query
     if (!queryText.trim() || isLoading) return
 
     const userMessageId = Date.now().toString()
@@ -123,7 +246,7 @@ function App() {
     }
 
     setMessages(prev => [...prev, userMsg])
-    if (textToSend === undefined) {
+    if (typeof textToSend !== 'string') {
       setQuery('')
     }
     setIsLoading(true)
@@ -134,7 +257,7 @@ function App() {
 
       if (response.ok) {
         const data = await response.json()
-        
+
         // Map backend results to citations list
         const retrievedCitations: Citation[] = (data.results || []).map((res: any) => {
           const dist = res.distance ?? 0.3
@@ -159,7 +282,7 @@ function App() {
       } else {
         const errData = await response.json().catch(() => ({}))
         const errorMsg = errData.detail || 'Query failed'
-        
+
         setMessages(prev => [
           ...prev,
           {
@@ -215,6 +338,9 @@ function App() {
       <Header
         modelProvider={modelProvider}
         onChangeModelProvider={handleModelProviderChange}
+        onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        documentCount={documents.length}
+        isSidebarOpen={isSidebarOpen}
       />
 
       {messages.length === 0 ? (
@@ -236,6 +362,17 @@ function App() {
         showToast={(msg) => showToast(msg, 'info')}
       />
 
+      <DocumentSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        documents={documents}
+        isLoading={isFetchingDocs}
+        onDeleteDocument={handleDeleteDocument}
+        onDeleteAllDocuments={handleDeleteAllDocuments}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onRefresh={fetchDocuments}
+      />
+
       <UploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
@@ -252,3 +389,4 @@ function App() {
 }
 
 export default App
+

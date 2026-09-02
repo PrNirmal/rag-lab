@@ -1,0 +1,30 @@
+# ------------------------
+# Build Stage
+# ------------------------
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+# ------------------------
+# Production Stage
+# ------------------------
+FROM nginx:alpine
+
+# Default backend URL fallback if not set at runtime
+ENV BACKEND_URL=http://rag-qa-api:8000
+
+COPY --from=builder /app/dist /usr/share/nginx/html
+# Nginx's entrypoint script runs envsubst on all files in /etc/nginx/templates/
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

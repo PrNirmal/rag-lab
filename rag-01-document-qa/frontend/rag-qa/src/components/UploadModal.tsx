@@ -1,10 +1,16 @@
 import React, { useRef, useState } from 'react'
-import { X, Upload, Loader2, Check, AlertCircle } from 'lucide-react'
+import { X, Upload, Loader2, Check, AlertCircle, Database } from 'lucide-react'
 
 interface UploadProgress {
   name: string
-  status: 'pending' | 'success' | 'error'
+  status: 'pending' | 'success' | 'error' | 'exists'
   errorMsg?: string
+  proof?: {
+    filename: string
+    total_chunks: number
+    pages: number[]
+    excerpt: string
+  }
 }
 
 interface UploadModalProps {
@@ -72,30 +78,62 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <div className="section-label" style={{ marginBottom: 8 }}>Indexing Status</div>
             <div className="upload-progress-list">
               {uploadProgressList.map((item, idx) => (
-                <div className="upload-progress-item" key={idx}>
-                  <span className="upload-file-name">{item.name}</span>
-                  <span className={`upload-status ${item.status}`}>
-                    {item.status === 'pending' && (
-                      <>
-                        <Loader2 size={12} className="loading-spinner" style={{ animation: 'spin 1s linear infinite' }} />
-                        <span>INDEXING</span>
-                      </>
-                    )}
-                    {item.status === 'success' && (
-                      <>
-                        <Check size={12} />
-                        <span>READY</span>
-                      </>
-                    )}
-                    {item.status === 'error' && (
-                      <>
-                        <span title={item.errorMsg} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          <AlertCircle size={12} />
-                        </span>
-                        <span>FAILED</span>
-                      </>
-                    )}
-                  </span>
+                <div className="upload-progress-card" key={idx}>
+                  <div className="upload-progress-item">
+                    <span className="upload-file-name">{item.name}</span>
+                    <span className={`upload-status ${item.status}`}>
+                      {item.status === 'pending' && (
+                        <>
+                          <Loader2 size={12} className="loading-spinner" style={{ animation: 'spin 1s linear infinite' }} />
+                          <span>INDEXING</span>
+                        </>
+                      )}
+                      {item.status === 'success' && (
+                        <>
+                          <Check size={12} />
+                          <span>READY</span>
+                        </>
+                      )}
+                      {item.status === 'exists' && (
+                        <>
+                          <Database size={12} />
+                          <span>ALREADY IN DB</span>
+                        </>
+                      )}
+                      {item.status === 'error' && (
+                        <>
+                          <span title={item.errorMsg} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                            <AlertCircle size={12} />
+                          </span>
+                          <span>FAILED</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {item.status === 'exists' && item.proof && (
+                    <div className="upload-proof-box">
+                      <div className="proof-header">
+                        <Database size={10} style={{ marginRight: 4 }} />
+                        <span>Verification Proof (Database Record Found)</span>
+                      </div>
+                      <div className="proof-body">
+                        <div className="proof-row">
+                          <span className="proof-label">Stored File:</span>
+                          <span className="proof-val">{item.proof.filename}</span>
+                        </div>
+                        <div className="proof-row">
+                          <span className="proof-label">Vector Chunks:</span>
+                          <span className="proof-val">{item.proof.total_chunks} chunks (Pages {item.proof.pages.join(', ')})</span>
+                        </div>
+                        {item.proof.excerpt && (
+                          <div className="proof-excerpt-container">
+                            <span className="proof-label">DB Content Preview:</span>
+                            <div className="proof-excerpt-text">"{item.proof.excerpt}"</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

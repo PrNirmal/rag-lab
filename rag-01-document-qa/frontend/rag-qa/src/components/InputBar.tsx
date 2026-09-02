@@ -51,7 +51,7 @@ export const InputBar: React.FC<InputBarProps> = ({
         <span className="shortcut-hint">Press ⌘ + Enter</span>
         <button
           className="send-btn"
-          onClick={onSendQuery}
+          onClick={() => onSendQuery()}
           disabled={!query.trim() || isLoading}
         >
           <ArrowRight size={16} />

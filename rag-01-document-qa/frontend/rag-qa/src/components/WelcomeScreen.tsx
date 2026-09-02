@@ -27,7 +27,7 @@ export const WelcomeScreen: React.FC = () => {
             </div>
             <h3 className="capability-title">Vector Semantics</h3>
             <p className="capability-desc">
-              Embeds text chunks using deep learning models for high-dimensional semantic match similarity.
+              Embeds text chunks for semantic similarity.
             </p>
           </div>
 
@@ -37,7 +37,7 @@ export const WelcomeScreen: React.FC = () => {
             </div>
             <h3 className="capability-title">Context Synthesis</h3>
             <p className="capability-desc">
-              Combines retrieved passages directly into prompts for localized context-guided answers.
+              Combines retrieved passages into context-guided answers.
             </p>
           </div>
 
@@ -47,7 +47,7 @@ export const WelcomeScreen: React.FC = () => {
             </div>
             <h3 className="capability-title font-sans">Source Citations</h3>
             <p className="capability-desc">
-              Extracts precise document names, page locations, and section lines for strict validation.
+              Extracts precise document names and page locations.
             </p>
           </div>
         </div>
