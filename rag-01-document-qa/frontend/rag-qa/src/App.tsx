@@ -171,7 +171,14 @@ function App() {
             )
             showToast(`"${file.name}" is already available in the database.`, 'info')
           } else {
-            const errorMsg = (typeof errorDetail === 'string' ? errorDetail : errorDetail?.message) || 'Upload failed'
+            let errorMsg = (typeof errorDetail === 'string' ? errorDetail : errorDetail?.message)
+            if (!errorMsg) {
+              if (response.status === 502 || response.status === 504) {
+                errorMsg = 'Backend is waking up from sleep. Please wait a moment and try again.'
+              } else {
+                errorMsg = `Upload failed (Status ${response.status})`
+              }
+            }
             setUploadProgressList(prev =>
               prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg } : item))
             )
