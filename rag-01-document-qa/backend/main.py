@@ -13,3 +13,12 @@ app.include_router(upload_router, prefix="/api")
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the Document QA API!"}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)

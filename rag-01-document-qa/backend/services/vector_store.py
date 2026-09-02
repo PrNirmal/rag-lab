@@ -1,8 +1,28 @@
+import os
 from pathlib import Path
 from typing import Any
 
 # Global Chroma client cache
 _client = None
+
+
+def get_chroma_db_dir() -> Path:
+    """Resolves the persistent Chroma DB directory across local and containerized deployments."""
+    env_dir = os.getenv("CHROMA_DB_DIR")
+    if env_dir:
+        path = Path(env_dir)
+        if not path.is_absolute():
+            # If relative path is provided in .env (e.g. 'data'), resolve relative to backend folder
+            base_dir = Path(__file__).resolve().parents[1]
+            path = base_dir / path
+    elif Path("/app/data").exists() and os.access("/app/data", os.W_OK):
+        path = Path("/app/data")
+    else:
+        # Default to backend/data relative to project root
+        path = Path(__file__).resolve().parents[1] / "data"
+
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def get_chroma_client() -> Any:
@@ -11,8 +31,7 @@ def get_chroma_client() -> Any:
     if _client is None:
         try:
             import chromadb
-            # Database directory is persisted in backend/data
-            chroma_db_dir = Path(__file__).resolve().parents[1] / "data"
+            chroma_db_dir = get_chroma_db_dir()
             _client = chromadb.PersistentClient(path=str(chroma_db_dir))
         except ImportError as e:
             raise ImportError(
@@ -135,3 +154,71 @@ def get_document_chunks(filename: str) -> list[dict[str, Any]]:
     # Sort chunks by page and then chunk_index to maintain reading order
     chunks.sort(key=lambda c: (c["page"], c["chunk_index"]))
     return chunks
+
+
+def delete_document(filename: str) -> dict[str, Any]:
+    """Deletes all chunks belonging to a filename from the vector database."""
+    collection = get_or_create_collection()
+    data = collection.get(where={"filename": filename}, include=["metadatas"])
+    if not data or not data.get("ids") or len(data["ids"]) == 0:
+        return {"success": False, "deleted_chunks": 0, "filename": filename}
+
+    chunk_ids = data["ids"]
+    collection.delete(ids=chunk_ids)
+    return {"success": True, "deleted_chunks": len(chunk_ids), "filename": filename}
+
+
+def delete_all_documents() -> dict[str, Any]:
+    """Deletes all documents and chunks in the vector database collection."""
+    collection = get_or_create_collection()
+    data = collection.get(include=["metadatas"])
+    if not data or not data.get("ids") or len(data["ids"]) == 0:
+        return {"success": True, "deleted_chunks": 0}
+
+    chunk_ids = data["ids"]
+    collection.delete(ids=chunk_ids)
+    return {"success": True, "deleted_chunks": len(chunk_ids)}
+
+
+def get_all_documents_metadata() -> list[dict[str, Any]]:
+    """Retrieves aggregated metadata for all distinct documents indexed in Chroma DB."""
+    collection = get_or_create_collection()
+    data = collection.get(include=["metadatas", "documents"])
+    if not data or not data.get("metadatas"):
+        return []
+
+    docs_map: dict[str, dict[str, Any]] = {}
+    
+    for doc, meta in zip(data.get("documents", []), data.get("metadatas", [])):
+        if not meta or "filename" not in meta:
+            continue
+        fname = meta["filename"]
+        page = meta.get("page", 1)
+        chunk_idx = meta.get("chunk_index", 0)
+
+        if fname not in docs_map:
+            docs_map[fname] = {
+                "filename": fname,
+                "total_chunks": 0,
+                "pages": set(),
+                "first_chunk": (chunk_idx, doc or "")
+            }
+        
+        docs_map[fname]["total_chunks"] += 1
+        docs_map[fname]["pages"].add(page)
+        if chunk_idx < docs_map[fname]["first_chunk"][0]:
+            docs_map[fname]["first_chunk"] = (chunk_idx, doc or "")
+
+    results = []
+    for fname, info in sorted(docs_map.items(), key=lambda x: x[0].lower()):
+        first_text = info["first_chunk"][1] or ""
+        preview = first_text[:120].strip() + ("..." if len(first_text) > 120 else "")
+        results.append({
+            "filename": fname,
+            "total_chunks": info["total_chunks"],
+            "pages": sorted(list(info["pages"])),
+            "preview": preview
+        })
+
+    return results
+

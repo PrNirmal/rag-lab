@@ -13,6 +13,9 @@ from services.vector_store import (
     query_documents,
     get_all_filenames,
     get_document_chunks,
+    delete_document,
+    delete_all_documents,
+    get_all_documents_metadata,
 )
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -25,7 +28,29 @@ async def upload_file(file: UploadFile = File(...)):
 
     # Check for duplicate files in the database
     if file.filename in get_all_filenames():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File already exists")
+        chunks = get_document_chunks(file.filename)
+        total_chunks = len(chunks)
+        pages = sorted(list(set(chunk["page"] for chunk in chunks)))
+        
+        excerpt = ""
+        if chunks:
+            # First chunk
+            first_chunk_text = chunks[0].get("text", "")
+            excerpt = first_chunk_text[:150] + "..." if len(first_chunk_text) > 150 else first_chunk_text
+            
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error_type": "already_exists",
+                "message": "This document is already available in the database.",
+                "proof": {
+                    "filename": file.filename,
+                    "total_chunks": total_chunks,
+                    "pages": pages,
+                    "excerpt": excerpt
+                }
+            }
+        )
 
     suffix = Path(file.filename).suffix
     temp_path = None
@@ -74,8 +99,37 @@ async def upload_file(file: UploadFile = File(...)):
 
 @router.get("/")
 async def list_uploads():
-    # Return files list directly from the database
-    return {"files": get_all_filenames()}
+    # Return files list directly from the database along with structured document info
+    return {
+        "files": get_all_filenames(),
+        "documents": get_all_documents_metadata()
+    }
+
+
+@router.delete("/")
+async def delete_all_uploads():
+    """Deletes all documents indexed in the vector store."""
+    result = delete_all_documents()
+    return {
+        "message": "All documents deleted successfully from database",
+        "deleted_chunks": result.get("deleted_chunks", 0)
+    }
+
+
+@router.delete("/{filename:path}")
+async def delete_upload(filename: str):
+    """Deletes all chunks for a specific document from the vector store."""
+    result = delete_document(filename)
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document '{filename}' not found in the database"
+        )
+    return {
+        "message": f"Document '{filename}' deleted successfully",
+        "filename": filename,
+        "deleted_chunks": result.get("deleted_chunks", 0)
+    }
 
 
 @router.get("/query")
