@@ -24,7 +24,8 @@ services:
     ports:
       - "3000:80"
     environment:
-      - BACKEND_URL=http://rag-qa-api:8000
+      # Defaults to local backend container; override with BACKEND_URL=https://rag-lab-zvpp.onrender.com
+      - BACKEND_URL=${BACKEND_URL:-http://rag-qa-api:8000}
     networks:
       - rag-network
     depends_on:

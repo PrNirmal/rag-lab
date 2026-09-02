@@ -19,7 +19,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Default backend URL fallback if not set at runtime
-ENV BACKEND_URL=http://rag-qa-api:8000
+ENV BACKEND_URL=https://rag-lab-zvpp.onrender.com
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 # Nginx's entrypoint script runs envsubst on all files in /etc/nginx/templates/
