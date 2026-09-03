@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="header">
       <div className="header-left">
         <div className="header-brand">
-          <img src={logoImg} alt="RAG QA Logo" className="header-logo" />
+          <img src={logoImg} alt="RAG QA Logo" className="header-logo" style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0 }} />
           <span className="studio-title">RAG Studio</span>
         </div>
 
