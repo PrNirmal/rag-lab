@@ -173,8 +173,8 @@ function App() {
           } else {
             let errorMsg = (typeof errorDetail === 'string' ? errorDetail : errorDetail?.message)
             if (!errorMsg) {
-              if (response.status === 502 || response.status === 504) {
-                errorMsg = 'Backend is waking up from sleep. Please wait a moment and try again.'
+              if (response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504) {
+                errorMsg = 'Backend is waking up from sleep (~40s on Render Free Tier). Please wait a moment and try again.'
               } else {
                 errorMsg = `Upload failed (Status ${response.status})`
               }
@@ -187,9 +187,9 @@ function App() {
         }
       } catch {
         setUploadProgressList(prev =>
-          prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg: 'Network error' } : item))
+          prev.map(item => (item.name === file.name ? { ...item, status: 'error', errorMsg: 'Network error or backend waking up. Please retry.' } : item))
         )
-        showToast(`Failed to upload "${file.name}": Network error`, 'error')
+        showToast(`Failed to upload "${file.name}": Backend waking up or network error. Please retry.`, 'error')
       }
     }
 
@@ -288,14 +288,20 @@ function App() {
         setMessages(prev => [...prev, aiMsg])
       } else {
         const errData = await response.json().catch(() => ({}))
-        const errorMsg = errData.detail || 'Query failed'
+        let errorMsg = errData.detail || 'Query failed'
+
+        if (response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504) {
+          errorMsg = 'Backend is currently waking up from sleep (~40s on Render Free Tier). Please wait a few seconds and send your query again.'
+        }
 
         setMessages(prev => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
             sender: 'ai',
-            text: `Error calling retrieval engine: ${errorMsg}. Please make sure you have uploaded files and your LLM server (Ollama or OpenRouter) is configured.`
+            text: response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504
+              ? errorMsg
+              : `Error calling retrieval engine: ${errorMsg}. Please make sure you have uploaded files and your LLM service (Ollama or OpenRouter) is configured.`
           }
         ])
       }
@@ -305,7 +311,7 @@ function App() {
         {
           id: (Date.now() + 1).toString(),
           sender: 'ai',
-          text: `Failed to query the RAG system. Error: ${error.message || 'Network error'}. Make sure your backend API is running on port 8000.`
+          text: `Backend is unreachable or waking up from sleep. Error: ${error.message || 'Network error'}. Please wait a moment and try again.`
         }
       ])
     } finally {
