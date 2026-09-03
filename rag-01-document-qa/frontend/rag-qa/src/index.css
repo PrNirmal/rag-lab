@@ -45,20 +45,25 @@
   padding: 0;
 }
 
-body {
+html, body {
   margin: 0;
-  width: 100vw;
-  height: 100vh;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   overflow: hidden;
   background-color: hsl(var(--bg-main));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
 #root {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -195,10 +200,12 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   background-color: hsl(var(--bg-main));
   overflow: hidden;
   position: relative;
-  height: 100%;
 }
 
 /* Main Workspace Header Entrance Animation */
@@ -277,14 +284,16 @@ body {
 
 /* Welcome Center Content Entrance Animation */
 .main-content {
-  flex: 1;
+  flex: 1 1 0%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 24px;
+  padding: 32px 24px;
   overflow-y: auto;
   position: relative;
+  -webkit-overflow-scrolling: touch;
 }
 
 .welcome-section {
@@ -470,13 +479,14 @@ body {
 
 /* Bottom Floating Input Bar Entrance Animation */
 .input-container {
-  padding: 0 24px 24px;
+  padding: 0 24px calc(20px + env(safe-area-inset-bottom, 0px));
   width: 100%;
   max-width: 680px;
   margin: 0 auto;
   flex-shrink: 0;
   opacity: 0;
   animation: input-entrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.5s both;
+  z-index: 20;
 }
 
 @keyframes input-entrance {
@@ -958,14 +968,19 @@ body {
 }
 
 @media (max-width: 768px) {
-  .capabilities-grid {
-    display: none;
-  }
   .header {
     padding: 0 12px;
+    height: 54px;
   }
   .header-left {
     gap: 6px !important;
+  }
+  .header-brand {
+    gap: 6px !important;
+  }
+  .header-logo {
+    width: 20px !important;
+    height: 20px !important;
   }
   .studio-title {
     font-size: 13px;
@@ -979,36 +994,137 @@ body {
     gap: 4px;
   }
   .model-selector select {
-    font-size: 12px;
-    max-width: 145px;
-    padding-right: 20px;
+    font-size: 11px;
+    max-width: 135px;
+    padding-right: 14px;
   }
   .sparkle-icon {
     width: 12px;
     height: 12px;
   }
+
+  /* Welcome Center Mobile Scaling */
+  .main-content {
+    padding: 16px 16px 8px;
+    justify-content: center;
+  }
+  .welcome-section {
+    margin-bottom: 12px;
+    max-width: 100%;
+  }
+  .sparkle-container {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 14px;
+  }
+  .ripple:nth-child(1) { width: 120px; height: 120px; }
+  .ripple:nth-child(2) { width: 90px; height: 90px; }
+  .ripple:nth-child(3) { width: 60px; height: 60px; }
+  .sparkle-card {
+    width: 58px;
+    height: 58px;
+    border-radius: 14px;
+  }
+  .sparkle-card img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+  .welcome-title {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .welcome-subtitle {
+    font-size: 13px;
+    line-height: 1.4;
+    margin-bottom: 10px;
+    padding: 0 8px;
+  }
+  .capabilities-grid {
+    display: none;
+  }
+
+  /* Input bar Mobile Responsiveness */
   .input-container {
-    padding: 0 12px 12px;
+    padding: 6px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    max-width: 100%;
   }
   .input-capsule {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+  .attachment-pill {
     padding: 6px 8px;
   }
+  .mic-btn {
+    padding: 4px;
+  }
   .query-input {
-    padding: 6px 8px;
+    padding: 6px 6px;
     font-size: 13px;
+    min-width: 0;
   }
   .shortcut-hint {
     display: none;
   }
+  .enhance-badge {
+    padding: 5px 6px;
+    margin-right: 2px;
+    gap: 3px;
+  }
   .enhance-badge span {
     display: none;
   }
-  .enhance-badge {
-    padding: 6px;
-    margin-right: 4px;
+  .send-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
   }
-  .attachment-pill {
-    padding: 6px;
+
+  /* Chat messages & Sidebar on mobile */
+  .chat-messages {
+    padding: 16px 12px;
+    gap: 16px;
+  }
+  .sidebar-drawer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100%;
+    height: 100dvh;
+  }
+}
+
+/* Also handle landscape or very short mobile heights (e.g. keyboard open) */
+@media (max-height: 640px) {
+  .header {
+    height: 48px;
+  }
+  .sparkle-container {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 8px;
+  }
+  .ripple:nth-child(1) { width: 80px; height: 80px; }
+  .ripple:nth-child(2) { width: 60px; height: 60px; }
+  .ripple:nth-child(3) { width: 40px; height: 40px; }
+  .sparkle-card {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+  .sparkle-card img {
+    width: 22px !important;
+    height: 22px !important;
+  }
+  .welcome-title {
+    font-size: 17px;
+    margin-bottom: 4px;
+  }
+  .welcome-subtitle {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  .input-container {
+    padding-bottom: 6px;
   }
 }
 

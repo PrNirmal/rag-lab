@@ -329,7 +329,7 @@ function App() {
   }
 
   return (
-    <div className="workspace-container" style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="workspace-container">
       {/* Intro splash screen with bright flash wipe effect */}
       {showOverlay && (
         <div className={`splash-overlay ${!isSplashing ? 'fade-out' : ''}`}>

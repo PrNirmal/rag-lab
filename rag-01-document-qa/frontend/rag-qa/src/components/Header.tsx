@@ -19,9 +19,9 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="header">
-      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div className="header-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <img src={logoImg} alt="RAG QA Logo" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+      <div className="header-left">
+        <div className="header-brand">
+          <img src={logoImg} alt="RAG QA Logo" className="header-logo" />
           <span className="studio-title">RAG Studio</span>
         </div>
 
@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div className="header-right">
         <button
           className={`sidebar-toggle-btn ${isSidebarOpen ? 'active' : ''}`}
           onClick={onToggleSidebar}
